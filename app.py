@@ -12,7 +12,6 @@ st.set_page_config(
 )
 
 # PERSISTENT STORAGE
-# Directorio local donde vivirá la plantilla del usuario para siempre
 PERSISTENT_DIR = os.path.join(os.path.dirname(__file__), "saved_template")
 os.makedirs(PERSISTENT_DIR, exist_ok=True)
 SAVED_TEMPLATE_PATH = os.path.join(PERSISTENT_DIR, "plantilla_activa.xlsx")
@@ -39,8 +38,9 @@ st.markdown("""
     .stFileUploader > div > div {
         background-color: transparent;
     }
-    /* Text Inputs */
-    .stTextInput > div > div > input {
+    /* Text Inputs and Number Inputs */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input {
         background-color: #2b2b2e;
         color: white;
         border: 1px solid #1f538d;
@@ -115,7 +115,8 @@ with st.expander("Actualizar / Subir nueva Plantilla Excel"):
         with open(SAVED_TEMPLATE_PATH, "wb") as f:
             f.write(excel_file.getvalue())
         st.success("¡Plantilla actualizada y guardada exitosamente!")
-        st.rerun()
+        st.experimental_rerun()
+
 st.markdown("---")
 
 # --- SECTION 2: XML FILES UPLOAD ---
@@ -128,14 +129,16 @@ if xml_files:
 st.markdown("---")
 
 # --- SECTION 3: CONFIGURACIÓN CONTABLE & MATCH ---
-st.markdown("### 3. Asignación de Cuentas Contables")
-st.markdown('<p class="muted-text">Define los códigos contables que se asignarán a todas las facturas procesadas.</p>', unsafe_allow_html=True)
+st.markdown("### 3. Configuración del Comprobante")
+st.markdown('<p class="muted-text">Define los parámetros contables para este lote de facturas.</p>', unsafe_allow_html=True)
 
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns([2, 2, 1.5])
 with col1:
-    debit_acc = st.text_input("Cuenta Gasto/Costo (Débito)", placeholder="Ej. 513505", help="Se asignará a la primera fila (Valor Base)")
+    debit_acc = st.text_input("Cuenta Gasto/Costo (Débito)", placeholder="Ej. 513505")
 with col2:
-    credit_acc = st.text_input("Cuenta por Pagar (Crédito)", placeholder="Ej. 233595", help="Se asignará a la segunda fila (Valor Total)")
+    credit_acc = st.text_input("Cuenta por Pagar (Crédito)", placeholder="Ej. 233595")
+with col3:
+    start_consec = st.number_input("🚨 Consecutivo Inicial", min_value=1, value=1, step=1, help="El número del comprobante con el que empezará el lote de facturas.")
 
 st.markdown("---")
 
@@ -160,11 +163,12 @@ if st.button("🚀 Iniciar Extracción y Generar Comprobante", disabled=not (xml
                     with open(xml_path, "wb") as f:
                         f.write(xml_f.getvalue())
                         
-                # Inicialización interactiva con cuentas pre-definidas
+                # Inicializamos el motor con cuentas y el consecutivo inicial elegido por el usuario
                 processor = BatchProcessor(
                     template_path=SAVED_TEMPLATE_PATH,
                     debit_account=debit_acc.strip(),
-                    credit_account=credit_acc.strip()
+                    credit_account=credit_acc.strip(),
+                    start_consecutive=start_consec
                 )
                 
                 processor.process_folder(input_dir, output_excel)
@@ -188,4 +192,3 @@ if st.button("🚀 Iniciar Extracción y Generar Comprobante", disabled=not (xml
             
             finally:
                 shutil.rmtree(temp_dir, ignore_errors=True)
-
