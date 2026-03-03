@@ -111,7 +111,7 @@ with st.expander("Actualizar / Subir nueva Plantilla Excel"):
             f.write(excel_file.getvalue())
         
         st.success("¡Plantilla actualizada y guardada exitosamente!")
-        st.experimental_rerun() # Refresh app to show the "active template" box
+        st.rerun() # Refresh app to show the "active template" box
 
 st.markdown("---")
 
@@ -173,3 +173,4 @@ if st.button("🚀 Procesar y Generar Reporte", disabled=not (xml_files and has_
             
             finally:
                 shutil.rmtree(temp_dir, ignore_errors=True)
+
