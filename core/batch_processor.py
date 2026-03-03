@@ -1,23 +1,61 @@
 import os
 import glob
-import json
-import pandas as pd
 from lxml import etree
+import openpyxl
 import sys
 
 class BatchProcessor:
-    def __init__(self, mapping_file: str):
+    # Diccionario inteligente para autodetectar columnas sin intervención humana.
+    ALIAS_DICT = {
+        "fecha": "IssueDate",
+        "emision": "IssueDate",
+        "nit": "CompanyID",
+        "cedula": "CompanyID",
+        "identificacion": "CompanyID",
+        "razon social": "RegistrationName",
+        "nombre": "RegistrationName",
+        "proveedor": "RegistrationName",
+        "cliente": "RegistrationName",
+        "subtotal": "LineExtensionAmount",
+        "base": "TaxableAmount",
+        "iva": "TaxAmount",
+        "impuesto": "TaxAmount",
+        "total": "PayableAmount",
+        "numero": "ID",
+        "factura": "ID",
+        "consecutivo": "ID",
+        "vencimiento": "DueDate",
+    }
+
+    def __init__(self, template_path: str):
         """
-        Inicializa el procesador cargando las reglas de mapeo del usuario.
+        Inicializa el procesador leyendo directamente la plantilla de Excel del usuario.
         """
-        if not os.path.exists(mapping_file):
-            raise FileNotFoundError(f"No se encontró el archivo de mapeo: {mapping_file}")
+        if not os.path.exists(template_path):
+            raise FileNotFoundError(f"Plantilla no encontrada: {template_path}")
             
-        with open(mapping_file, 'r', encoding='utf-8') as f:
-            self.mapping_schema = json.load(f)
-            
-        self.columns_order = self.mapping_schema.get("columns_order", [])
-        self.mapping = self.mapping_schema.get("mapping", {})
+        self.template_path = template_path
+        
+        # Leemos los encabezados usando openpyxl para mapearlos a los tags
+        wb = openpyxl.load_workbook(self.template_path, data_only=True)
+        sheet = wb.active
+        
+        self.columns_order = []
+        self.col_indices = {}
+        
+        # Asumimos que la fila 1 tiene los encabezados (estándar contable)
+        for cell in sheet[1]:
+            if cell.value:
+                col_name = str(cell.value).strip()
+                self.columns_order.append(col_name)
+                self.col_indices[col_name] = cell.column
+                
+        # Construimos el mapeo automático usando inteligencia de alias
+        self.mapping = {}
+        for col_name in self.columns_order:
+            xml_tag = self._infer_tag(col_name)
+            if xml_tag:
+                self.mapping[col_name] = xml_tag
         
         # Namespaces comunes usados en la DIAN (UBL 2.1)
         self.namespaces = {
@@ -26,9 +64,17 @@ class BatchProcessor:
             'ext': 'urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2'
         }
 
+    def _infer_tag(self, col_name: str) -> str:
+        """Busca coincidencias lógicas entre el nombre de la columna y los campos XML"""
+        col_lower = col_name.lower()
+        for key, tag in self.ALIAS_DICT.items():
+            if key in col_lower:
+                return tag
+        return None
+
     def parse_single_xml_totals(self, xml_path: str) -> dict:
         """
-        Procesa un único XML y extrae la información a nivel de cabecera (Totales).
+        Procesa un único XML y extrae la información dictada por el automapeo.
         """
         try:
             tree = etree.parse(xml_path)
@@ -36,21 +82,23 @@ class BatchProcessor:
             
             extracted_data = {}
             
-            # Recorremos el mapeo configurado por el usuario
             for excel_col, xml_tag in self.mapping.items():
-                # Búsqueda XPath agnóstica de namespace exacto, pero
-                # apuntando específicamente al nombre del tag. Esto da mucha flexibilidad
-                # si el XML viene con prefijos irregulares.
                 xpath_expr = f"//*[local-name()='{xml_tag}']"
                 elements = root.xpath(xpath_expr, namespaces=self.namespaces)
                 
                 if elements:
-                    # MVP: Tomamos la primera ocurrencia no vacía. 
-                    # (Más adelante refinaremos para manejar tags duplicados como 'CompanyID' que pueden ser emisor o receptor)
                     value = None
                     for el in elements:
                         if el.text and el.text.strip():
                             value = el.text.strip()
+                            # Convertimos numéricos si es posible para un Excel limpio
+                            try:
+                                if '.' in value and value.replace('.', '', 1).isdigit():
+                                    value = float(value)
+                                elif value.isdigit():
+                                    value = int(value)
+                            except:
+                                pass
                             break
                     extracted_data[excel_col] = value
                 else:
@@ -59,14 +107,12 @@ class BatchProcessor:
             return extracted_data
             
         except Exception as e:
-            # En producción, usar logging en lugar de print
             print(f"\n[Error] falló el procesamiento de {xml_path}: {str(e)}")
             return None
 
     def process_folder(self, folder_path: str, output_excel_path: str):
         """
-        Toma una carpeta con N archivos XML, extrae la data y la exporta a Excel.
-        Incluye una barra de progreso nativa en consola.
+        Extrae data de los XMLs y los inserta en el Excel preservando diseño y formato.
         """
         search_pattern = os.path.join(folder_path, '*.xml')
         xml_files = glob.glob(search_pattern)
@@ -76,56 +122,27 @@ class BatchProcessor:
             print(f"⚠️ No se encontraron archivos XML en: {folder_path}")
             return
             
-        print(f"🚀 Iniciando procesamiento batch de {total_files} facturas electrónicas (XML)...\n")
+        # 1. Cargamos el Excel original SIN romper formatos
+        wb = openpyxl.load_workbook(self.template_path)
+        sheet = wb.active
+        start_row = sheet.max_row + 1
         
-        results = []
-        
+        # 2. Procesamos y AÑADIMOS (append)
         for i, xml_file in enumerate(xml_files):
             data_row = self.parse_single_xml_totals(xml_file)
             
             if data_row is not None:
-                # Agregamos el nombre del archivo nativo para propósitos de auditoría
-                data_row['_Archivo_Origen'] = os.path.basename(xml_file)
-                results.append(data_row)
+                # Opcional: Agregar nombre del archivo si hay columna para ello (evitamos si no está mapeada)
+                if "_Archivo_Origen" in self.col_indices:
+                     data_row["_Archivo_Origen"] = os.path.basename(xml_file)
                 
-            self._print_progress_bar(i + 1, total_files, prefix='Progreso:', suffix='Completado', length=40)
-            
-        print("\n\n📊 Generando consolidado en Excel...")
-        
-        # Convertimos la lista de diccionarios a un DataFrame
-        df = pd.DataFrame(results)
-        
-        # Garantizamos que las columnas respeten el orden original de la plantilla del usuario
-        cols_present = [c for c in self.columns_order if c in df.columns]
-        other_cols = [c for c in df.columns if c not in cols_present]
-        final_columns = cols_present + other_cols
-        
-        df = df[final_columns]
-        
-        # Guardado final a un archivo .xlsx
-        df.to_excel(output_excel_path, index=False, engine='openpyxl')
-        print(f"✅ ¡Éxito! Archivo guardado correctamente en: {output_excel_path}")
-
-    def _print_progress_bar(self, iteration, total, prefix='', suffix='', decimals=1, length=100, fill='█'):
-        """
-        Barra de progreso visual en consola para no depender de librerías externas (como tqdm) en el core MVP.
-        """
-        percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
-        filledLength = int(length * iteration // total)
-        bar = fill * filledLength + '-' * (length - filledLength)
-        sys.stdout.write(f'\r{prefix} |{bar}| {percent}% {suffix} ({iteration}/{total})')
-        sys.stdout.flush()
-
-if __name__ == "__main__":
-    # Prueba rápida de escritorio si ejecutas el script directamente
-    # Asume que existe un mapping y carpetas de test
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    test_mapping_file = os.path.join(current_dir, '..', 'templates', 'user_mapping.json')
-    test_input_folder = os.path.join(current_dir, '..', 'data', 'input_xmls')
-    test_output_excel = os.path.join(current_dir, '..', 'data', 'output', 'resultado_contable.xlsx')
-    
-    if os.path.exists(test_mapping_file) and os.path.exists(test_input_folder):
-        processor = BatchProcessor(test_mapping_file)
-        processor.process_folder(test_input_folder, test_output_excel)
-    else:
-        print("💡 Para probar, crea las carpetas correspondientes y el user_mapping.json.")
+                # Insertamos la data en las columnas exactas usando índices
+                for col_name, value in data_row.items():
+                    if col_name in self.col_indices:
+                        col_idx = self.col_indices[col_name]
+                        sheet.cell(row=start_row, column=col_idx, value=value)
+                start_row += 1
+                
+        # 3. Guardado final preservado
+        wb.save(output_excel_path)
+        print(f"\n✅ Archivo guardado correctamente en: {output_excel_path}")
