@@ -1,6 +1,4 @@
 import streamlit as st
-import pandas as pd
-import json
 import os
 import shutil
 import tempfile
@@ -12,6 +10,12 @@ st.set_page_config(
     page_icon="⚡",
     layout="centered"
 )
+
+# PERSISTENT STORAGE
+# Directorio local donde vivirá la plantilla del usuario para siempre
+PERSISTENT_DIR = os.path.join(os.path.dirname(__file__), "saved_template")
+os.makedirs(PERSISTENT_DIR, exist_ok=True)
+SAVED_TEMPLATE_PATH = os.path.join(PERSISTENT_DIR, "plantilla_activa.xlsx")
 
 # INJECTION OF CUSTOM CSS FOR DARK/PROFESSIONAL THEME
 st.markdown("""
@@ -35,13 +39,6 @@ st.markdown("""
     .stFileUploader > div > div {
         background-color: transparent;
     }
-    /* Selectboxes */
-    div[data-baseweb="select"] > div {
-        background-color: #2b2b2e;
-        color: white;
-        border-radius: 4px;
-        border: 1px solid #1f538d;
-    }    
     /* Buttons */
     .stButton > button {
         background-color: #1f538d !important;
@@ -73,152 +70,106 @@ st.markdown("""
         color: #a0a0a0;
         font-size: 0.9em;
     }
-    /* Box wrapper for matcher */
-    .matcher-box {
-        background-color: #2b2b2e;
-        padding: 20px;
-        border-radius: 10px;
-        margin-top: 20px;
+    /* Info Box */
+    .info-box {
+        background-color: #14375e;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 5px solid #00a859;
         margin-bottom: 20px;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # HEADER
-st.title("⚡ Procesador Batch de Facturas XML")
-st.markdown('<p class="muted-text">Herramienta profesional de automatización para contabilidad.</p>', unsafe_allow_html=True)
+st.title("⚡ Procesador Batch DIAN")
+st.markdown('<p class="muted-text">Automatización Contable Inteligente. Sube tus facturas y obtén tu reporte.</p>', unsafe_allow_html=True)
 
-# --- SESSION STATE INITIALIZATION ---
-if 'mapping_config' not in st.session_state:
-    st.session_state.mapping_config = {}
-if 'columns_order' not in st.session_state:
-    st.session_state.columns_order = []
-if 'excel_uploaded' not in st.session_state:
-    st.session_state.excel_uploaded = False
+# Verifica si ya existe una plantilla guardada
+has_template = os.path.exists(SAVED_TEMPLATE_PATH)
 
-# --- SECTION 1: XML UPLOAD (DRAG & DROP) ---
-st.markdown("### 1. Carga de Facturas (XML)")
-st.markdown('<p class="muted-text">Arrastra aquí todos los XML proporcionados por la DIAN.</p>', unsafe_allow_html=True)
-xml_files = st.file_uploader("Sube tus archivos XML", type=["xml"], accept_multiple_files=True, label_visibility="collapsed")
+# --- SECTION 1: EXCEL TEMPLATE (OPCIONAL/MEMORIA) ---
+st.markdown("### Configuración de Plantilla")
 
-if xml_files:
-    st.success(f"✅ {len(xml_files)} archivos XML listos.")
+if has_template:
+    st.markdown("""
+    <div class="info-box">
+        <b>✅ Tienes una plantilla Excel guardada y activa.</b><br>
+        El sistema recordará tus columnas automáticamente. No necesitas subirla de nuevo a menos que quieras cambiarla.
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    st.info("⚠️ Aún no tienes una plantilla configurada. Sube tu Excel vacío con los encabezados e intentaremos autodetectarlos.")
+
+with st.expander("Actualizar / Subir nueva Plantilla Excel"):
+    st.markdown('<p class="muted-text">Sube tu archivo .xlsx original. Mantendremos tus colores y diseño intactos.</p>', unsafe_allow_html=True)
+    excel_file = st.file_uploader("Sube tu plantilla", type=["xlsx"], label_visibility="collapsed")
+    
+    if excel_file:
+        # Guardamos la plantilla persistentemente
+        with open(SAVED_TEMPLATE_PATH, "wb") as f:
+            f.write(excel_file.getvalue())
+        
+        st.success("¡Plantilla actualizada y guardada exitosamente!")
+        st.experimental_rerun() # Refresh app to show the "active template" box
 
 st.markdown("---")
 
-# --- SECTION 2: EXCEL TEMPLATE & MATCHER ---
-st.markdown("### 2. Plantilla de Excel y Mapeo")
-st.markdown('<p class="muted-text">Sube la plantilla de Excel donde deseas extraer la información.</p>', unsafe_allow_html=True)
-excel_file = st.file_uploader("Sube tu plantilla Excel (.xlsx)", type=["xlsx"], label_visibility="collapsed")
+# --- SECTION 2: XML FILES UPLOAD ---
+st.markdown("### Procesamiento de Facturas (XML)")
+st.markdown('<p class="muted-text">Arrastra todos tus archivos XML aquí.</p>', unsafe_allow_html=True)
+xml_files = st.file_uploader("Sube tus archivos XML", type=["xml"], accept_multiple_files=True, label_visibility="collapsed")
 
-if excel_file:
-    # Leer las columnas del excel en la primera hoja
-    try:
-        df_template = pd.read_excel(excel_file, nrows=0) # Solo lee la cabecera
-        st.session_state.columns_order = list(df_template.columns)
-        st.session_state.excel_uploaded = True
-        st.success(f"✅ Plantilla '{excel_file.name}' cargada correctamente.")
-    except Exception as e:
-        st.error(f"Error al leer el Excel: {str(e)}")
-
-# VISUAL MATCHER
-if st.session_state.excel_uploaded:
-    st.markdown('<div class="matcher-box">', unsafe_allow_html=True)
-    st.markdown("#### Configuración de Columnas")
-    st.markdown("Empareja las columnas de tu Excel con las etiquetas del XML de la DIAN.")
-    
-    # Algunas etiquetas comunes para facilitar la selección. El usuario puede escribir otras también
-    xml_tags_suggestions = [
-        "[Ignorar esta columna]",
-        "ID", "IssueDate", "DueDate", "PayableAmount",
-        "LineExtensionAmount", "TaxExclusiveAmount", "TaxInclusiveAmount",
-        "CompanyID", "RegistrationName", "CitySubdivisionName",
-        "TaxAmount", "TaxableAmount", "MultiplierFactorNumeric"
-    ]
-    
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        st.markdown("**Columna Excel**")
-    with col2:
-        st.markdown("**Etiqueta XML a extraer**")
-        
-    for col_name in st.session_state.columns_order:
-        c1, c2 = st.columns([1, 1])
-        with c1:
-            st.write(col_name)
-        with c2:
-            # We use a selectbox but allow the user to type to search or add custom (if streamlit allowed natively, we stick to common list and a text input option)
-            # For simplicity, we provide a list, but also a way to map exactly.
-            selected = st.selectbox(
-                f"XML Tag for {col_name}", 
-                options=xml_tags_suggestions, 
-                key=f"match_{col_name}", 
-                label_visibility="collapsed"
-            )
-            if selected != "[Ignorar esta columna]":
-                st.session_state.mapping_config[col_name] = selected
-            else:
-                st.session_state.mapping_config.pop(col_name, None)
-    st.markdown('</div>', unsafe_allow_html=True)
+if xml_files:
+    st.success(f"✅ {len(xml_files)} archivos XML listos para extraer.")
 
 st.markdown("---")
 
 # --- SECTION 3: PROCESS AND EXPORT ---
-st.markdown("### 3. Procesamiento")
-
-# Check if ready
-is_ready = bool(xml_files) and st.session_state.excel_uploaded and len(st.session_state.mapping_config) > 0
-
-if st.button("🚀 Procesar Facturas", disabled=not is_ready):
-    if not is_ready:
-        st.warning("Asegúrate de cargar XMLs, un Excel y configurar al menos una columna.")
+if st.button("🚀 Procesar y Generar Reporte", disabled=not (xml_files and has_template)):
+    if not has_template:
+        st.error("Por favor, sube una plantilla de Excel primero.")
+    elif not xml_files:
+        st.warning("Debes subir al menos un archivo XML.")
     else:
-        with st.spinner("Procesando archivos y generando Excel..."):
-            # Create a temporary directory structure safely
+        with st.spinner("Leyendo facturas y anexando a tu Excel..."):
             temp_dir = tempfile.mkdtemp()
             input_dir = os.path.join(temp_dir, "input_xmls")
             os.makedirs(input_dir, exist_ok=True)
-            output_excel = os.path.join(temp_dir, "resultado.xlsx")
-            mapping_file = os.path.join(temp_dir, "temp_mapping.json")
+            output_excel = os.path.join(temp_dir, "Facturacion_Consolidada.xlsx")
             
             try:
-                # 1. Save all uploaded XMLs to input_dir
+                # 1. Guardar XMLs adjuntos en el temp dir
                 for xml_f in xml_files:
                     xml_path = os.path.join(input_dir, xml_f.name)
                     with open(xml_path, "wb") as f:
                         f.write(xml_f.getvalue())
                         
-                # 2. Generate Mapping JSON exactly as BatchProcessor expects
-                mapping_schema = {
-                    "columns_order": st.session_state.columns_order,
-                    "mapping": st.session_state.mapping_config
-                }
-                with open(mapping_file, "w", encoding="utf-8") as f:
-                    json.dump(mapping_schema, f, ensure_ascii=False, indent=4)
-                    
-                # 3. Init BatchProcessor and run
-                processor = BatchProcessor(mapping_file)
+                # 2. Iniciar el motor que preserva formato (apunta a la plantilla persistente)
+                processor = BatchProcessor(SAVED_TEMPLATE_PATH)
                 processor.process_folder(input_dir, output_excel)
                 
-                # 4. Put the output file into Session State to provide download button
+                # 3. Mostrar la auto-detección (Opcional pero muy útil para el usuario)
+                if processor.mapping:
+                    mapeos_txt = ", ".join([f'"{k}"' for k in processor.mapping.keys()])
+                    st.success(f"🤖 Extraímos exitosamente la data de estas columnas detectadas: {mapeos_txt}")
+                else:
+                    st.warning("No se encontraron coincidencias automáticas entre tus encabezados y nuestras reglas.")
+
+                # 4. Ofrecer la descarga de la App
                 if os.path.exists(output_excel):
                     with open(output_excel, "rb") as f:
                         processed_file_data = f.read()
                         
-                    st.success("✅ ¡Procesamiento Exitoso! Puedes descargar tu archivo a continuación.")
-                    
                     st.download_button(
-                        label="⬇️ Descargar Excel Consolidado",
+                        label="⬇️ Descargar Reporte Final (Con Diseño Original)",
                         data=processed_file_data,
-                        file_name="Facturas_Extraidas_DIAN.xlsx",
+                        file_name="Facturas_Extraidas_Completadas.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
-                else:
-                    st.error("Hubo un error al generar el archivo final.")
             
             except Exception as e:
                 st.error(f"Error procesando los archivos: {str(e)}")
             
             finally:
-                # Cleanup temp files cleanly
                 shutil.rmtree(temp_dir, ignore_errors=True)
