@@ -2,10 +2,10 @@ import os
 import glob
 from lxml import etree
 import openpyxl
+from datetime import datetime
 
 class BatchProcessor:
     # Diccionario inteligente para autodetectar columnas sin intervención humana.
-    # Ajustado específicamente para la plantilla "Modelo de importación de comprobantes contables" de Siigo
     ALIAS_DICT = {
         "tercero": "CompanyID", # NIT
         "identificaci\u00f3n tercero": "CompanyID",
@@ -19,19 +19,21 @@ class BatchProcessor:
         "tipo de comprobante": "_FIXED_CC",
         "sigla moneda": "_FIXED_COP",
         "tasa de cambio": "_FIXED_1",
+        "sucursal": "_FIXED_0",
+        "no. cuota": "_FIXED_1",
+        "cuenta contable": "_ACCOUNT_DYNAMIC"
     }
-    
-    # Campo oculto de IVA que el UBL2.1 trae por defecto a nivel cabecera
-    IVA_XML_TAG = "TaxAmount"
 
-    def __init__(self, template_path: str):
+    def __init__(self, template_path: str, debit_account: str = "", credit_account: str = ""):
         """
-        Inicializa el procesador leyendo directamente la plantilla de Excel del usuario (Siigo).
+        Inicializa el procesador con la plantilla y las cuentas contables seleccionadas en la UI.
         """
         if not os.path.exists(template_path):
             raise FileNotFoundError(f"Plantilla no encontrada: {template_path}")
             
         self.template_path = template_path
+        self.debit_account = debit_account
+        self.credit_account = credit_account
         
         # Leemos los encabezados usando openpyxl para mapearlos a los tags
         wb = openpyxl.load_workbook(self.template_path, data_only=True)
@@ -54,9 +56,10 @@ class BatchProcessor:
             if xml_tag_or_fixed:
                 self.mapping[col_name] = xml_tag_or_fixed
                 
-        # Guardamos referencias a las columnas Débito y Crédito para manipularlas
+        # Guardamos referencias a las columnas Débito, Crédito y Cuenta para manipularlas
         self.debito_col = next((col for col in self.mapping if "debito" in col.lower() or "d\u00e9bito" in col.lower()), None)
         self.credito_col = next((col for col in self.mapping if "credito" in col.lower() or "cr\u00e9dito" in col.lower()), None)
+        self.cuenta_col = next((col for col in self.mapping if self.mapping[col] == "_ACCOUNT_DYNAMIC"), None)
         
         # Namespaces comunes usados en la DIAN (UBL 2.1)
         self.namespaces = {
@@ -86,11 +89,30 @@ class BatchProcessor:
         except:
             return 0.0
 
+    def _clean_nit(self, nit_str: str) -> str:
+        """Limpia el NIT para que no tenga decimales ni letras raras (ej. 900.123.456.0 -> 900123456)"""
+        if not nit_str: return ""
+        # 1. Quitar todos los puntos, comas o guiones
+        clean = nit_str.replace(".", "").replace(",", "").replace("-", "")
+        # 2. Mantener solo los dígitos (limpia el DV si estaba separado, o lo unifica)
+        clean = ''.join(c for c in clean if c.isdigit())
+        return clean
+        
+    def _format_date_siigo(self, date_str: str) -> str:
+        """Convierte fechas estándar (ej. YYYY-MM-DD) al formato DD/MM/AAAA para Siigo"""
+        if not date_str: return ""
+        try:
+            # UBL suele traer YYYY-MM-DD
+            d = datetime.strptime(date_str, "%Y-%m-%d")
+            return d.strftime("%d/%m/%Y")
+        except:
+            return date_str
+
     def parse_single_xml_totals(self, xml_path: str) -> list:
         """
         Procesa el XML y extrae la información.
-        Genera TRES filas para la contabilidad (Gasto, Impuesto, Pago) 
-        y autocompleta los campos estáticos.
+        Genera DOS filas para la contabilidad (Gasto y Pago).
+        Aplica reglas de sanitización de NIT y Fechas.
         """
         try:
             tree = etree.parse(xml_path)
@@ -110,6 +132,13 @@ class BatchProcessor:
                 elif xml_tag == "_FIXED_1":
                     shared_data[excel_col] = 1
                     continue
+                elif xml_tag == "_FIXED_0":
+                    shared_data[excel_col] = 0
+                    continue
+                elif xml_tag == "_ACCOUNT_DYNAMIC":
+                    # Lo llenaremos específicamente en cada fila
+                    shared_data[excel_col] = "" 
+                    continue
                 
                 # Búsqueda XPath para tags dinámicos
                 xpath_expr = f"//*[local-name()='{xml_tag}']"
@@ -121,50 +150,39 @@ class BatchProcessor:
                         if el.text and el.text.strip():
                             value = el.text.strip()
                             break
+                            
+                # Sanitizaciones específicas
+                if xml_tag == "CompanyID":
+                    value = self._clean_nit(value)
+                elif xml_tag == "IssueDate":
+                    value = self._format_date_siigo(value)
+                    
                 shared_data[excel_col] = value
 
             # --- 2. Encontrar valores monetarios críticos ---
-            # El alias dict dice que el DÉBITO mapeaba al Subtotal (Base)
             base_val = 0.0
             if self.debito_col and self.debito_col in shared_data:
                 base_val = self._extract_numeric(shared_data[self.debito_col])
                 
-            # El alias dict dice que el CRÉDITO mapeaba al Total (Pago)
             total_val = 0.0
             if self.credito_col and self.credito_col in shared_data:
                 total_val = self._extract_numeric(shared_data[self.credito_col])
-                
-            # Extraemos manualmente el IVA (TaxAmount no está en el Excel directamente, lo forzamos)
-            iva_val = 0.0
-            iva_elements = root.xpath(f"//*[local-name()='{self.IVA_XML_TAG}']", namespaces=self.namespaces)
-            if iva_elements:
-                for el in iva_elements:
-                    if el.text and el.text.strip():
-                        iva_val = self._extract_numeric(el.text.strip())
-                        break
 
-            # --- 3. Construir las 3 filas (Triple Entry Ledger para Siigo) ---
+            # --- 3. Construir las 2 filas (2-row Double Entry para Siigo) ---
             rows_to_insert = []
             
-            # Fila A (Gasto): Base al Débito, Crédito = 0
+            # Fila 1 (Gasto/Costo): Base al Débito, Crédito = 0, Cuenta Débito
             row_gasto = shared_data.copy()
             if self.debito_col: row_gasto[self.debito_col] = base_val
             if self.credito_col: row_gasto[self.credito_col] = 0.0
+            if self.cuenta_col: row_gasto[self.cuenta_col] = self.debit_account
             rows_to_insert.append(row_gasto)
             
-            # Fila B (Impuesto): IVA al Débito, Crédito = 0
-            row_iva = shared_data.copy()
-            if self.debito_col: row_iva[self.debito_col] = iva_val
-            if self.credito_col: row_iva[self.credito_col] = 0.0
-            # (Opcionalmente, Siigo recomienda que la Descripción de la fila de IVA diga "IVA"...)
-            # Si quieres que la descripción diga IVA, se añadiría aquí, pero lo dejamos idéntico 
-            # a la cabecera (número de factura) según tus lineamientos.
-            rows_to_insert.append(row_iva)
-            
-            # Fila C (Pago): Crédito al Total, Débito = 0
+            # Fila 2 (Cuenta por Pagar): Crédito al Total, Débito = 0, Cuenta Crédito
             row_pago = shared_data.copy()
             if self.credito_col: row_pago[self.credito_col] = total_val
             if self.debito_col: row_pago[self.debito_col] = 0.0
+            if self.cuenta_col: row_pago[self.cuenta_col] = self.credit_account
             rows_to_insert.append(row_pago)
                 
             return rows_to_insert
@@ -176,7 +194,7 @@ class BatchProcessor:
     def process_folder(self, folder_path: str, output_excel_path: str):
         """
         Extrae data de los XMLs y los inserta en el Excel preservando diseño y formato.
-        Añade múltiples filas (3) por comprobante.
+        Añade 2 filas por comprobante asegurando la limpieza de Siigo.
         """
         search_pattern = os.path.join(folder_path, '*.xml')
         xml_files = glob.glob(search_pattern)
