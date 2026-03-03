@@ -115,8 +115,7 @@ with st.expander("Actualizar / Subir nueva Plantilla Excel"):
         with open(SAVED_TEMPLATE_PATH, "wb") as f:
             f.write(excel_file.getvalue())
         st.success("¡Plantilla actualizada y guardada exitosamente!")
-        st.experimental_rerun()
-
+        st.rerun()
 st.markdown("---")
 
 # --- SECTION 2: XML FILES UPLOAD ---
@@ -189,3 +188,4 @@ if st.button("🚀 Iniciar Extracción y Generar Comprobante", disabled=not (xml
             
             finally:
                 shutil.rmtree(temp_dir, ignore_errors=True)
+
