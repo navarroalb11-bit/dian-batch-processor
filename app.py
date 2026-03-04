@@ -295,6 +295,49 @@ EXXO_THEME = """
         transform: translateY(-2px);
         box-shadow: 0 0 40px rgba(0, 217, 255, 0.6) !important;
     }
+
+    /* =======================================================
+       RESPONSIVE DESIGN - OPTIMIZACIÓN MÓVIL (SMARTPHONES)
+       ======================================================= */
+    @media (max-width: 768px) {
+        .block-container {
+            padding-top: 1rem !important;
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+
+        .nav-bar {
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 2rem;
+            align-items: center;
+            text-align: center;
+        }
+
+        .hero-title {
+            font-size: 2rem;
+        }
+
+        .hero-subtitle {
+            font-size: 0.85rem;
+            padding: 0 1rem;
+        }
+
+        section[data-testid="stFileUploadDropzone"],
+        div[data-testid="stFileUploadDropzone"] {
+            padding: 2rem 1rem !important;
+        }
+
+        div[data-testid="stFileUploadDropzone"]::before {
+            width: 100px;
+            height: 40px;
+        }
+
+        .stDownloadButton > button {
+            max-width: 100%;
+            padding: 0.8rem 1rem !important;
+        }
+    }
 </style>
 """
 
