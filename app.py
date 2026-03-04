@@ -354,12 +354,12 @@ def extract_data(files):
             except: total = 0.0
             
             data_list.append({
-                "NÚMERO DE FACTURA": factura if factura else "N/A",
-                "NIT DEL PROVEEDOR": nit if nit else "N/A",
-                "SUBTOTAL": subtotal,
-                "IVA": iva,
-                "VALOR TOTAL": total,
-                "ESTADO": "Procesado"  # Simulación estética
+                "fecha de emision": fecha if fecha else "N/A",
+                "numero de factura": factura if factura else "N/A",
+                "monto del subtotal": subtotal,
+                "monto del iva": iva,
+                "total": total,
+                "nit del proveedor": nit if nit else "N/A"
             })
             
             progress = (i + 1) / len(files)
@@ -375,30 +375,7 @@ def extract_data(files):
     progress_bar.empty()
     status_text.empty()
     
-    # Intento de Ordenar por Plantilla Base si existe (Lógica que pediste antes)
-    template_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Base_Datos_Facturas (2).xlsx")
-    if os.path.exists(template_path) and data_list:
-        try:
-            template_df = pd.read_excel(template_path)
-            template_cols = template_df.columns.tolist()
-            
-            mapped_data = []
-            for row in data_list:
-                new_row = {}
-                for tcol in template_cols:
-                    t_upper = str(tcol).upper()
-                    if "FACTURA" in t_upper or ("NUM" in t_upper and "FACT" in t_upper): new_row[tcol] = row.get("NÚMERO DE FACTURA", "")
-                    elif "NIT" in t_upper or "RUT" in t_upper or "ID " in t_upper: new_row[tcol] = row.get("NIT DEL PROVEEDOR", "")
-                    elif "SUBTOTAL" in t_upper or "BASE" in t_upper: new_row[tcol] = row.get("SUBTOTAL", 0.0)
-                    elif "IVA" in t_upper or "IMPUESTO" in t_upper: new_row[tcol] = row.get("IVA", 0.0)
-                    elif "TOTAL" in t_upper: new_row[tcol] = row.get("VALOR TOTAL", 0.0)
-                    else: new_row[tcol] = "" 
-                mapped_data.append(new_row)
-            return pd.DataFrame(mapped_data)
-        except:
-            return pd.DataFrame(data_list)
-    else:
-        return pd.DataFrame(data_list)
+    return pd.DataFrame(data_list)
 
 # 4. INTERACCION UI - DROPZONE
 uploaded_files = st.file_uploader("Arrastre y suelte sus archivos aquí", accept_multiple_files=True, type=['xml', 'txt'])
