@@ -49,10 +49,20 @@ EXXO_THEME = """
         color: #FFFFFF;
     }
 
+    /* Ocultar elementos por defecto de Streamlit y Nube (Github bar/Deploy) */
+    [data-testid="stHeader"] { 
+        display: none !important; 
+        visibility: hidden !important; 
+    }
+    .stAppDeployButton { display: none !important; }
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header { visibility: hidden !important; }
+
     /* Contenedor central (para que no ocupe todo el ancho exageradamente) */
     .block-container {
         max-width: 1000px !important;
-        padding-top: 2rem !important;
+        padding-top: 1rem !important;
     }
 
     /* TOP BAR EXACTA - NAVBAR */
@@ -161,7 +171,7 @@ EXXO_THEME = """
     }
 
     /* ZONA DE CARGA EXACTA - OVERRIDE FORZADO A BLANCOS DE STREAMLIT */
-    .stFileUploader > div:first-child {
+    .stFileUploader, .stFileUploader > div, .stFileUploader div {
         background-color: transparent !important; 
     }
     
