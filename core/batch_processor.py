@@ -9,6 +9,7 @@ class BatchProcessor:
         """
         Inicializa el procesador masivo de base de datos.
         Ya no requiere plantillas Excel, funciona de forma autónoma con Pandas.
+        Soporta archivos .xml y .txt (siempre y cuando contengan estructura de factura válida).
         """
         # Las 6 columnas exactas requeridas por el cliente
         self.target_columns = [
@@ -62,15 +63,25 @@ class BatchProcessor:
         except:
             return date_str
 
-    def parse_single_xml(self, xml_path: str) -> dict:
+    def parse_single_file(self, file_path: str) -> dict:
         """
-        Procesa el XML y extrae la información en un diccionario plano de 6 llaves.
+        Procesa el archivo (XML o TXT) y extrae la información en un diccionario plano de 6 llaves.
+        Si el archivo es un TXT sin etiquetas XML válidas de factura, retorna un código de error controlado.
         """
         try:
-            tree = etree.parse(xml_path)
+            # En lxml.etree.parse, no importa la extensión del archivo, 
+            # solo le importa que el contenido tenga sintaxis XML válida.
+            # Por tanto, si es un TXT con XML adentro, funcionará. 
+            # Si es un TXT con "Hola Mundo", tirará una excepción XMLSyntaxError.
+            tree = etree.parse(file_path)
             root = tree.getroot()
             
+            # Validación secundaria: ¿Al menos tiene etiquetas Invoice o CreditNote típicas de la DIAN?
+            # En UBL, el root tag suele verse como {urn:oasis:...}Invoice. 
+            # Una validación rápida es buscar si conseguimos al menos un 'cbc:ID' o simplemente intentamos mapear.
+            
             row_data = {col: None for col in self.target_columns}
+            found_data = False # Para verificar si extrajimos algo útil
             
             for excel_col, xml_tag in self.mapping.items():
                 xpath_expr = f"//*[local-name()='{xml_tag}']"
@@ -81,6 +92,7 @@ class BatchProcessor:
                     for el in elements:
                         if el.text and el.text.strip():
                             value = el.text.strip()
+                            found_data = True # Sí había datos XML válidos
                             break
                             
                 # Limpiezas y tipados
@@ -92,28 +104,58 @@ class BatchProcessor:
                     value = self._format_date(value)
                     
                 row_data[excel_col] = value
+            
+            if not found_data:
+                # El archivo tenía sintaxis XML pero no era una factura (ej. un archivo SVG)
+                return {"_error_": "NOT_AN_INVOICE"}
                 
             return row_data
             
+        except etree.XMLSyntaxError:
+            # Esto captura los archivos TXT que son puro texto (ej. "Lista de compras del super")
+            return {"_error_": "NOT_XML"}
         except Exception as e:
-            print(f"[Error] Falló la extracción en {os.path.basename(xml_path)}: {str(e)}")
-            return None
+            # Otros errores inesperados
+            print(f"[Error] Falló la extracción en {os.path.basename(file_path)}: {str(e)}")
+            return {"_error_": "UNKNOWN"}
 
-    def process_folder(self, folder_path: str, output_excel_path: str):
+    def process_folder(self, folder_path: str, output_excel_path: str) -> dict:
         """
-        Lee 1 o N archivos, genera una base de datos tabular y la exporta a Excel puro.
+        Lee los archivos, genera una base de datos tabular y la exporta a Excel puro.
+        Retorna un diccionario con estadísticas de éxito/error para mostrarlas en la interfaz.
         """
-        search_pattern = os.path.join(folder_path, '*.xml')
-        xml_files = glob.glob(search_pattern)
+        # Buscar tanto XMLs como TXTs
+        search_pattern_xml = os.path.join(folder_path, '*.xml')
+        search_pattern_txt = os.path.join(folder_path, '*.txt')
         
-        if not xml_files:
-            raise FileNotFoundError(f"⚠️ No se encontraron archivos XML en: {folder_path}")
+        all_files = glob.glob(search_pattern_xml) + glob.glob(search_pattern_txt)
+        
+        if not all_files:
+            raise FileNotFoundError(f"⚠️ No se encontraron archivos (.xml o .txt) en: {folder_path}")
             
         results = []
-        for xml_file in xml_files:
-            data = self.parse_single_xml(xml_file)
+        stats = {
+            "processed": 0,
+            "failed_not_xml": 0,
+            "failed_not_invoice": 0,
+            "failed_unknown": 0
+        }
+        
+        for file_path in all_files:
+            data = self.parse_single_file(file_path)
+            
+            if data and "_error_" in data:
+                if data["_error_"] == "NOT_XML":
+                    stats["failed_not_xml"] += 1
+                elif data["_error_"] == "NOT_AN_INVOICE":
+                    stats["failed_not_invoice"] += 1
+                else:
+                    stats["failed_unknown"] += 1
+                continue
+                
             if data:
                 results.append(data)
+                stats["processed"] += 1
                 
         if results:
             # Creación del DataFrame y exportación de alta velocidad
@@ -121,4 +163,6 @@ class BatchProcessor:
             df.to_excel(output_excel_path, index=False)
             print(f"✅ Base de datos generada exitosamente: {len(results)} registros.")
         else:
-            raise ValueError("No se pudo extraer información válida de los XML proporcionados.")
+            raise ValueError("No se pudo extraer información válida de los archivos proporcionados. Asegúrate de que contengan estructura de Factura Electrónica.")
+            
+        return stats
