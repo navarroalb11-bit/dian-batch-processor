@@ -7,78 +7,145 @@ import time
 # 1. CONFIGURACIÓN DE PÁGINA Y DISEÑO (BRANDING EXXO)
 st.set_page_config(page_title="EXXO - Data Intelligence", layout="wide")
 
-# ISOTIPO Y CSS PARA IMPACTO VISUAL
+# ISOTIPO Y CSS PARA IMPACTO VISUAL B2B / ENTERPRISE
 EXXO_THEME = """
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
     html, body, [data-testid="stAppViewContainer"] {
-        background-color: #0A0A0B !important;
-        font-family: 'Inter', sans-serif;
-        color: #D0D0D0;
+        background-color: #09090b !important; /* Zinc 950 - Ultra dark gray/black */
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        color: #fafafa;
     }
 
-    /* HEADER */
+    /* Ocultar barra de headers de Streamlit */
+    header { visibility: hidden !important; }
+    .css-15zrgzn { display: none !important; }
+
+    /* HEADER CORPORATIVO */
     .exxo-header {
         display: flex;
         align-items: center;
-        gap: 15px;
-        padding: 20px 0;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
-        margin-bottom: 40px;
+        gap: 16px;
+        padding-top: 10px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid #27272a; /* Zinc 800 */
+        margin-bottom: 32px;
     }
 
-    /* CARGADOR DE ARCHIVOS ESTILIZADO */
+    /* CARGADOR DE ARCHIVOS ESTILIZADO - SAAS LOOK */
     .stFileUploader {
-        border: 2px dashed #00D9FF !important;
-        border-radius: 30px !important;
-        background: rgba(0, 217, 255, 0.02) !important;
-        padding: 30px !important;
-    }
-
-    /* BOTONES EXXO */
-    div.stButton > button {
-        background: #FFFFFF !important;
-        color: #000000 !important;
-        border: none !important;
-        border-radius: 15px !important;
-        font-weight: 900 !important;
-        text-transform: uppercase !important;
-        letter-spacing: 2px !important;
-        padding: 15px 30px !important;
-        width: 100% !important;
-        transition: 0.3s all !important;
+        border: 1px dashed #3f3f46 !important; /* Zinc 700 */
+        border-radius: 8px !important;
+        background-color: #18181b !important; /* Zinc 900 */
+        transition: border-color 0.2s ease, background-color 0.2s ease;
     }
     
-    div.stButton > button:hover {
-        background: #00D9FF !important;
-        box-shadow: 0 0 30px rgba(0, 217, 255, 0.4) !important;
+    div[data-testid="stFileUploadDropzone"] {
+        padding: 40px !important;
     }
 
-    /* TABLAS */
+    .stFileUploader:hover {
+        border-color: #0284c7 !important; /* Sky 600 - Acción */
+        background-color: #0c0a09 !important;
+    }
+    
+    /* Textos del Uploader */
+    div[data-testid="stFileUploadDropzone"] div[data-testid="stMarkdownContainer"] p {
+        font-size: 1.1rem;
+        color: #e4e4e7;
+        font-weight: 500;
+    }
+    
+    div[data-testid="stFileUploadDropzone"] div[data-testid="stMarkdownContainer"] p:nth-child(2) {
+        font-size: 0.85rem;
+        color: #a1a1aa; /* Zinc 400 */
+        font-weight: 400;
+        margin-top: 4px;
+    }
+
+    /* BOTONES EXXO - SOLID & TRUSTWORTHY */
+    div.stButton > button, .stDownloadButton > button {
+        background-color: #fafafa !important; /* Zinc 50 */
+        color: #09090b !important; /* Texto Oscuro */
+        border: 1px solid #e4e4e7 !important;
+        border-radius: 6px !important;
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
+        padding: 0.75rem 1.5rem !important;
+        width: 100% !important;
+        transition: all 0.2s ease !important;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+    }
+    
+    div.stButton > button:hover, .stDownloadButton > button:hover {
+        background-color: #f4f4f5 !important; /* Zinc 100 hover */
+        border-color: #d4d4d8 !important;
+        transform: translateY(-1px);
+    }
+    
+    .stDownloadButton > button {
+        background-color: #0284c7 !important; /* Principal Primary Call to Action */
+        color: #ffffff !important;
+        border: none !important;
+        margin-top: 24px;
+        box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.2), 0 2px 4px -2px rgba(2, 132, 199, 0.2) !important;
+    }
+    
+    .stDownloadButton > button:hover {
+        background-color: #0369a1 !important; /* Darker Primary */
+        box-shadow: 0 10px 15px -3px rgba(2, 132, 199, 0.3), 0 4px 6px -4px rgba(2, 132, 199, 0.3) !important;
+    }
+
+    /* TABLAS - CORPORATE DATA GRID */
     [data-testid="stDataFrame"] {
-        border: 1px solid rgba(255,255,255,0.05) !important;
-        border-radius: 20px !important;
-        overflow: hidden !important;
+        border: 1px solid #27272a !important; /* Zinc 800 */
+        border-radius: 8px !important;
+        background-color: #18181b !important;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1) !important;
     }
 
-    h1, h2 { color: #FFFFFF !important; font-weight: 900 !important; letter-spacing: -2px !important; }
-    .cyan-text { color: #00D9FF; }
+    /* TITULOS REDUCIDOS, ELEGANTES */
+    h1, h2, h3 { 
+        color: #fafafa !important; 
+        font-weight: 600 !important; 
+        letter-spacing: -0.025em !important; 
+    }
+    
+    h2 { font-size: 1.5rem !important; margin-bottom: 0.5rem !important; }
+    h3 { font-size: 1.1rem !important; border-bottom: 1px solid #27272a; padding-bottom: 12px; margin-bottom: 16px !important; color: #e4e4e7 !important; }
+    
+    p {
+        color: #a1a1aa; /* Zinc 400 */
+        font-size: 0.95rem;
+    }
+    
+    /* ACENTOS SOBRIOS */
+    .cyan-text { color: #0284c7; } /* Deep Sky Blue en lugar de Neon Cyan */
+    
+    /* Success / Alerts B2B */
+    div[data-testid="stAlert"] {
+        background-color: rgba(22, 163, 74, 0.1) !important;
+        border: 1px solid rgba(22, 163, 74, 0.2) !important;
+        color: #4ade80 !important;
+        border-radius: 6px !important;
+    }
+
 </style>
 """
 
 st.markdown(EXXO_THEME, unsafe_allow_html=True)
 
-# ISOTIPO SVG OFICIAL
+# ISOTIPO SVG OFICIAL - REFINADO (Trazo más fino, tipografía ajustada)
 ISOTIPO_SVG = """
 <div class="exxo-header">
-    <svg width="50" height="50" viewBox="0 0 100 100" fill="none">
-        <circle cx="50" cy="50" r="45" stroke="#00D9FF" stroke-width="8" />
-        <path d="M30 60L50 40L70 60" stroke="#00D9FF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+    <svg width="36" height="36" viewBox="0 0 100 100" fill="none">
+        <circle cx="50" cy="50" r="42" stroke="#fafafa" stroke-width="4" />
+        <path d="M30 65L50 35L70 65" stroke="#0ea5e9" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
     </svg>
     <div>
-        <h1 style="margin:0; font-size: 28px;">EXXO</h1>
-        <p style="margin:0; font-size: 10px; color: #00D9FF; letter-spacing: 4px; font-weight: bold;">DATA INTELLIGENCE</p>
+        <h1 style="margin:0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;">EXXO</h1>
+        <p style="margin:0; font-size: 10px; color: #a1a1aa; letter-spacing: 1px; font-weight: 500; text-transform: uppercase;">Data Intelligence</p>
     </div>
 </div>
 """
