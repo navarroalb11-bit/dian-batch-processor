@@ -22,8 +22,8 @@ def load_image_as_base64(filename):
                 return base64.b64encode(f.read()).decode()
     return None
 
-logo_b64 = load_image_as_base64("exxo logo isotipo_Mesa de trabajo 1.jpg")
-logo_img_tag = f'<img src="data:image/jpeg;base64,{logo_b64}" class="top-logo">' if logo_b64 else '<div class="top-logo-placeholder"></div>'
+logo_b64 = load_image_as_base64("isotipo oxxo png_Mesa de trabajo 1.png")
+logo_img_tag = f'<img src="data:image/png;base64,{logo_b64}" class="top-logo glow-logo">' if logo_b64 else '<div class="top-logo-placeholder"></div>'
 
 # ISOTIPO Y CSS ESTRICTO BASADO EN LA IMAGEN
 EXXO_THEME = """
@@ -89,10 +89,20 @@ EXXO_THEME = """
         align-items: center;
     }
 
-    /* Isotipo a la derecha */
+    /* ANIMACIÓN DEL TÍTULO PRINCIPAL Y LOGO (GLOW PULSANTE) */
+    @keyframes textGlow {
+        0%, 100% { filter: drop-shadow(0 0 10px rgba(0, 217, 255, 0.4)); text-shadow: 0 0 10px rgba(0, 217, 255, 0.4); }
+        50% { filter: drop-shadow(0 0 25px rgba(0, 217, 255, 0.9)); text-shadow: 0 0 30px rgba(0, 217, 255, 0.9), 0 0 10px rgba(0, 217, 255, 0.5); }
+    }
+    
+    .glow-logo {
+        animation: textGlow 3s infinite ease-in-out;
+    }
+
+    /* Isotipo a la izquierda/derecha */
     .top-logo {
         height: 45px;
-        border-radius: 8px;
+        border-radius: 8px; /* Opcional por si la imagen tiene fondos duros */
     }
     
     .top-logo-placeholder {
@@ -101,12 +111,6 @@ EXXO_THEME = """
         border-radius: 8px;
         background: rgba(0, 217, 255, 0.1);
         border: 1px solid #00D9FF;
-    }
-
-    /* ANIMACIÓN DEL TÍTULO PRINCIPAL (GLOW PULSANTE) */
-    @keyframes textGlow {
-        0%, 100% { text-shadow: 0 0 10px rgba(0, 217, 255, 0.4); }
-        50% { text-shadow: 0 0 30px rgba(0, 217, 255, 0.9), 0 0 10px rgba(0, 217, 255, 0.5); }
     }
     
     @keyframes fadeUp {
@@ -281,13 +285,13 @@ st.markdown(EXXO_THEME, unsafe_allow_html=True)
 st.markdown(f"""
 <div class="nav-bar">
     <div class="nav-left">
+        {logo_img_tag}
         <div class="nav-titles">
             <span class="nav-maintitle">EXXO</span>
             <span class="nav-subtitle">DATA EXTRACTION SYSTEMS</span>
         </div>
     </div>
     <div class="nav-right">
-        {logo_img_tag}
     </div>
 </div>
 
