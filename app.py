@@ -7,18 +7,22 @@ import os
 import base64
 
 # 1. CONFIGURACIÓN DE PÁGINA Y DISEÑO (BRANDING EXXO)
-st.set_page_config(page_title="EXXO - Data Extraction Systems", layout="wide")
+st.set_page_config(page_title="EXXO - Data Extraction Systems", layout="wide", initial_sidebar_state="collapsed")
 
-# Helpers
-def load_image_as_base64(path):
-    if os.path.exists(path):
-        with open(path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
+# Helpers: Búsqueda dinámica para Streamlit Cloud (varios paths posibles)
+def load_image_as_base64(filename):
+    paths_to_try = [
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), filename),
+        os.path.join(os.path.dirname(__file__), filename),
+        filename
+    ]
+    for p in paths_to_try:
+        if os.path.exists(p):
+            with open(p, "rb") as f:
+                return base64.b64encode(f.read()).decode()
     return None
 
-base_dir = os.path.dirname(os.path.dirname(__file__))
-logo_path = os.path.join(base_dir, "exxo logo isotipo_Mesa de trabajo 1.jpg")
-logo_b64 = load_image_as_base64(logo_path)
+logo_b64 = load_image_as_base64("exxo logo isotipo_Mesa de trabajo 1.jpg")
 logo_img_tag = f'<img src="data:image/jpeg;base64,{logo_b64}" class="top-logo">' if logo_b64 else '<div class="top-logo-placeholder"></div>'
 
 # ISOTIPO Y CSS ESTRICTO BASADO EN LA IMAGEN
@@ -143,24 +147,33 @@ EXXO_THEME = """
         font-weight: 600;
     }
 
-
-    /* ZONA DE CARGA EXACTA */
-    /* Uploader Dropzone */
+    /* ZONA DE CARGA EXACTA - OVERRIDE FORZADO A BLANCOS DE STREAMLIT */
+    .stFileUploader > div:first-child {
+        background-color: transparent !important; 
+    }
+    
+    section[data-testid="stFileUploadDropzone"],
     div[data-testid="stFileUploadDropzone"] {
         border: 1px dashed rgba(0, 217, 255, 0.4) !important;
         border-radius: 12px !important;
-        background-color: rgba(255,255,255,0.02) !important;
-        padding: 5rem 2rem !important;
+        background-color: rgba(255,255,255,0.03) !important; /* Forza fondo oscuro en vez del blanco */
+        padding: 4rem 2rem !important;
         transition: all 0.3s ease !important;
         animation: fadeUp 1.4s cubic-bezier(0.16, 1, 0.3, 1) ease-out;
     }
 
+    section[data-testid="stFileUploadDropzone"]:hover,
     div[data-testid="stFileUploadDropzone"]:hover {
         border-color: #00D9FF !important;
-        background-color: rgba(0, 217, 255, 0.05) !important;
+        background-color: rgba(0, 217, 255, 0.08) !important;
     }
 
-    /* Iconos falsos antes del texto st.uploader */
+    /* Ocultar iconos de nube/basura default de Streamlit */
+    div[data-testid="stFileUploadDropzone"] svg {
+        display: none !important;
+    }
+    
+    /* Reemplazar con iconos corporativos */
     div[data-testid="stFileUploadDropzone"]::before {
         content: "";
         display: block;
@@ -170,16 +183,10 @@ EXXO_THEME = """
         background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 40"><rect x="10" y="0" width="30" height="35" rx="6" fill="rgba(0,217,255,0.1)" stroke="%2300D9FF" stroke-width="1.5"/><rect x="60" y="0" width="30" height="35" rx="6" fill="rgba(139,92,246,0.1)" stroke="%238B5CF6" stroke-width="1.5"/></svg>') center/contain no-repeat;
     }
 
-    div[data-testid="stFileUploadDropzone"] div[data-testid="stMarkdownContainer"] p {
-        font-size: 1.25rem;
-        color: #FFFFFF;
-        font-weight: 600;
-    }
-    
-    div[data-testid="stFileUploadDropzone"] div[data-testid="stMarkdownContainer"] p:nth-child(2) {
-        font-size: 0.9rem;
-        color: #A1A1AA;
-        font-weight: 400;
+    div[data-testid="stFileUploadDropzone"] span, 
+    div[data-testid="stFileUploadDropzone"] p,
+    div[data-testid="stFileUploadDropzone"] small {
+        color: #A1A1AA !important; /* Fuerza grises frente al texto negro default */
     }
 
     /* Modificando el botón Browse nativo de Streamlit para que luzca como Selection Button Cyan */
@@ -199,7 +206,6 @@ EXXO_THEME = """
         background-color: #00B8D9 !important;
         transform: translateY(-2px);
     }
-    .stFileUploader > div > div { background-color: transparent !important; }
 
     /* TABLA DE MONITOR */
     .monitor-title {
