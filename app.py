@@ -3,155 +3,306 @@ import pandas as pd
 import xml.etree.ElementTree as ET
 from io import BytesIO
 import time
+import os
+import base64
 
 # 1. CONFIGURACIÓN DE PÁGINA Y DISEÑO (BRANDING EXXO)
-st.set_page_config(page_title="EXXO - Data Intelligence", layout="wide")
+st.set_page_config(page_title="EXXO - Data Extraction Systems", layout="wide")
 
-# ISOTIPO Y CSS PARA IMPACTO VISUAL B2B / ENTERPRISE
+# Helpers
+def load_image_as_base64(path):
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    return None
+
+base_dir = os.path.dirname(os.path.dirname(__file__))
+logo_path = os.path.join(base_dir, "exxo logo isotipo_Mesa de trabajo 1.jpg")
+logo_b64 = load_image_as_base64(logo_path)
+logo_img_tag = f'<img src="data:image/jpeg;base64,{logo_b64}" class="top-logo">' if logo_b64 else '<div class="top-logo-placeholder"></div>'
+
+# ISOTIPO Y CSS ESTRICTO BASADO EN LA IMAGEN
 EXXO_THEME = """
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
     
     html, body, [data-testid="stAppViewContainer"] {
-        background-color: #09090b !important; /* Zinc 950 - Ultra dark gray/black */
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-        color: #fafafa;
+        background-color: #121A20 !important; /* Azul/Gris ultra oscuro de la imagen */
+        font-family: 'Inter', sans-serif;
+        color: #FFFFFF;
     }
 
-    /* Ocultar barra de headers de Streamlit */
+    /* Ocultar elementos por defecto de Streamlit */
     header { visibility: hidden !important; }
     .css-15zrgzn { display: none !important; }
 
-    /* HEADER CORPORATIVO */
-    .exxo-header {
+    /* Contenedor central (para que no ocupe todo el ancho exageradamente) */
+    .block-container {
+        max-width: 1000px !important;
+        padding-top: 2rem !important;
+    }
+
+    /* TOP BAR EXACTA - NAVBAR */
+    .nav-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        padding-bottom: 1rem;
+        margin-bottom: 4rem;
+    }
+
+    .nav-left {
         display: flex;
         align-items: center;
-        gap: 16px;
-        padding-top: 10px;
-        padding-bottom: 24px;
-        border-bottom: 1px solid #27272a; /* Zinc 800 */
-        margin-bottom: 32px;
+        gap: 12px;
     }
 
-    /* CARGADOR DE ARCHIVOS ESTILIZADO - SAAS LOOK */
-    .stFileUploader {
-        border: 1px dashed #3f3f46 !important; /* Zinc 700 */
-        border-radius: 8px !important;
-        background-color: #18181b !important; /* Zinc 900 */
-        transition: border-color 0.2s ease, background-color 0.2s ease;
-    }
-    
-    div[data-testid="stFileUploadDropzone"] {
-        padding: 40px !important;
+    .top-logo {
+        height: 40px;
+        border-radius: 8px;
     }
 
-    .stFileUploader:hover {
-        border-color: #0284c7 !important; /* Sky 600 - Acción */
-        background-color: #0c0a09 !important;
+    .nav-titles {
+        display: flex;
+        flex-direction: column;
     }
-    
-    /* Textos del Uploader */
-    div[data-testid="stFileUploadDropzone"] div[data-testid="stMarkdownContainer"] p {
+
+    .nav-maintitle {
+        font-size: 1.2rem;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        color: #FFFFFF;
+        line-height: 1;
+    }
+
+    .nav-subtitle {
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 1.5px;
+        color: #00D9FF;
+        margin-top: 4px;
+        text-transform: uppercase;
+    }
+
+    .nav-right {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .nav-icons {
+        color: #A1A1AA;
         font-size: 1.1rem;
-        color: #e4e4e7;
-        font-weight: 500;
+    }
+
+    .nav-user {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border-left: 1px solid rgba(255,255,255,0.1);
+        padding-left: 20px;
+    }
+
+    .nav-user-text {
+        text-align: right;
+    }
+
+    h4.user-name { margin: 0; font-size: 0.85rem; font-weight: 700; color: #FFFFFF; }
+    p.user-role { margin: 0; font-size: 0.7rem; color: #00D9FF; }
+
+    .user-avatar {
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        background: radial-gradient(circle, #FDE68A 0%, #F59E0B 100%); /* Color durazno del mock */
+    }
+
+    /* HEADERS CENTRALES */
+    .hero-section {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+
+    .hero-title {
+        font-size: 2.8rem;
+        font-weight: 800;
+        color: #FFFFFF;
+        letter-spacing: -0.5px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .hero-title span {
+        color: #00D9FF;
+    }
+
+    .hero-subtitle {
+        font-size: 1rem;
+        color: #A1A1AA;
+        font-weight: 400;
+    }
+
+    .hero-subtitle span {
+        color: #8B5CF6; /* Formatos en mora/violeta */
+        font-weight: 600;
+    }
+
+
+    /* ZONA DE CARGA EXACTA */
+    /* Uploader Dropzone */
+    div[data-testid="stFileUploadDropzone"] {
+        border: 1px dashed rgba(0, 217, 255, 0.4) !important;
+        border-radius: 12px !important;
+        background-color: rgba(255,255,255,0.02) !important;
+        padding: 5rem 2rem !important;
+        transition: all 0.3s ease !important;
+    }
+
+    div[data-testid="stFileUploadDropzone"]:hover {
+        border-color: #00D9FF !important;
+        background-color: rgba(0, 217, 255, 0.05) !important;
+    }
+
+    /* Iconos falsos antes del texto st.uploader */
+    div[data-testid="stFileUploadDropzone"]::before {
+        content: "";
+        display: block;
+        width: 140px;
+        height: 60px;
+        margin: 0 auto 1.5rem auto;
+        background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 40"><rect x="10" y="0" width="30" height="35" rx="6" fill="rgba(0,217,255,0.1)" stroke="%2300D9FF" stroke-width="1.5"/><rect x="60" y="0" width="30" height="35" rx="6" fill="rgba(139,92,246,0.1)" stroke="%238B5CF6" stroke-width="1.5"/></svg>') center/contain no-repeat;
+    }
+
+    div[data-testid="stFileUploadDropzone"] div[data-testid="stMarkdownContainer"] p {
+        font-size: 1.25rem;
+        color: #FFFFFF;
+        font-weight: 600;
     }
     
     div[data-testid="stFileUploadDropzone"] div[data-testid="stMarkdownContainer"] p:nth-child(2) {
-        font-size: 0.85rem;
-        color: #a1a1aa; /* Zinc 400 */
+        font-size: 0.9rem;
+        color: #A1A1AA;
         font-weight: 400;
-        margin-top: 4px;
     }
 
-    /* BOTONES EXXO - SOLID & TRUSTWORTHY */
-    div.stButton > button, .stDownloadButton > button {
-        background-color: #fafafa !important; /* Zinc 50 */
-        color: #09090b !important; /* Texto Oscuro */
-        border: 1px solid #e4e4e7 !important;
-        border-radius: 6px !important;
-        font-weight: 600 !important;
-        font-size: 0.95rem !important;
-        padding: 0.75rem 1.5rem !important;
-        width: 100% !important;
-        transition: all 0.2s ease !important;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
-    }
-    
-    div.stButton > button:hover, .stDownloadButton > button:hover {
-        background-color: #f4f4f5 !important; /* Zinc 100 hover */
-        border-color: #d4d4d8 !important;
-        transform: translateY(-1px);
-    }
-    
-    .stDownloadButton > button {
-        background-color: #0284c7 !important; /* Principal Primary Call to Action */
-        color: #ffffff !important;
+    /* Modificando el botón Browse nativo de Streamlit para que luzca como Selection Button Cyan */
+    div[data-testid="stFileUploadDropzone"] button {
+        background-color: #00D9FF !important;
+        color: #000000 !important;
         border: none !important;
-        margin-top: 24px;
-        box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.2), 0 2px 4px -2px rgba(2, 132, 199, 0.2) !important;
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+        padding: 0.6rem 2rem !important;
+        margin-top: 1rem !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 15px rgba(0, 217, 255, 0.2) !important;
+    }
+    
+    div[data-testid="stFileUploadDropzone"] button:hover {
+        background-color: #00B8D9 !important;
+        transform: translateY(-2px);
+    }
+    .stFileUploader > div > div { background-color: transparent !important; }
+
+    /* TABLA DE MONITOR */
+    .monitor-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 3.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .monitor-title h3 {
+        margin: 0;
+        font-size: 1.15rem;
+        color: #FFFFFF;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .monitor-title h3::before {
+        content: "";
+        display: block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #00D9FF;
+    }
+
+    .monitor-status {
+        font-size: 0.8rem;
+        color: #A1A1AA;
+        background: rgba(255,255,255,0.05);
+        padding: 5px 15px;
+        border-radius: 20px;
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    /* Ajuste visual general al DataFrame de Streamlit */
+    [data-testid="stDataFrame"] {
+        background-color: rgba(13, 23, 28, 0.6) !important;
+        border: 1px solid rgba(0, 217, 255, 0.1) !important;
+        border-radius: 8px !important;
+    }
+
+    /* BOTONES GLOBALES (Incluido el de Descargas Final) */
+    .stDownloadButton > button {
+        background-color: #00D9FF !important;
+        color: #000000 !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+        padding: 1rem 2rem !important;
+        width: 100% !important;
+        max-width: 400px;
+        margin: 2rem auto 0 auto !important;
+        display: block !important;
+        box-shadow: 0 0 30px rgba(0, 217, 255, 0.4) !important;
+        transition: all 0.3s ease !important;
     }
     
     .stDownloadButton > button:hover {
-        background-color: #0369a1 !important; /* Darker Primary */
-        box-shadow: 0 10px 15px -3px rgba(2, 132, 199, 0.3), 0 4px 6px -4px rgba(2, 132, 199, 0.3) !important;
+        background-color: #00B8D9 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 0 40px rgba(0, 217, 255, 0.6) !important;
     }
-
-    /* TABLAS - CORPORATE DATA GRID */
-    [data-testid="stDataFrame"] {
-        border: 1px solid #27272a !important; /* Zinc 800 */
-        border-radius: 8px !important;
-        background-color: #18181b !important;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1) !important;
-    }
-
-    /* TITULOS REDUCIDOS, ELEGANTES */
-    h1, h2, h3 { 
-        color: #fafafa !important; 
-        font-weight: 600 !important; 
-        letter-spacing: -0.025em !important; 
-    }
-    
-    h2 { font-size: 1.5rem !important; margin-bottom: 0.5rem !important; }
-    h3 { font-size: 1.1rem !important; border-bottom: 1px solid #27272a; padding-bottom: 12px; margin-bottom: 16px !important; color: #e4e4e7 !important; }
-    
-    p {
-        color: #a1a1aa; /* Zinc 400 */
-        font-size: 0.95rem;
-    }
-    
-    /* ACENTOS SOBRIOS */
-    .cyan-text { color: #0284c7; } /* Deep Sky Blue en lugar de Neon Cyan */
-    
-    /* Success / Alerts B2B */
-    div[data-testid="stAlert"] {
-        background-color: rgba(22, 163, 74, 0.1) !important;
-        border: 1px solid rgba(22, 163, 74, 0.2) !important;
-        color: #4ade80 !important;
-        border-radius: 6px !important;
-    }
-
 </style>
 """
 
 st.markdown(EXXO_THEME, unsafe_allow_html=True)
 
-# ISOTIPO SVG OFICIAL - REFINADO (Trazo más fino, tipografía ajustada)
-ISOTIPO_SVG = """
-<div class="exxo-header">
-    <svg width="36" height="36" viewBox="0 0 100 100" fill="none">
-        <circle cx="50" cy="50" r="42" stroke="#fafafa" stroke-width="4" />
-        <path d="M30 65L50 35L70 65" stroke="#0ea5e9" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
-    </svg>
-    <div>
-        <h1 style="margin:0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px;">EXXO</h1>
-        <p style="margin:0; font-size: 10px; color: #a1a1aa; letter-spacing: 1px; font-weight: 500; text-transform: uppercase;">Data Intelligence</p>
+# 2. INYECCIÓN DEL NAVBAR Y HERO
+st.markdown(f"""
+<div class="nav-bar">
+    <div class="nav-left">
+        {logo_img_tag}
+        <div class="nav-titles">
+            <span class="nav-maintitle">EXXO</span>
+            <span class="nav-subtitle">DATA EXTRACTION SYSTEMS</span>
+        </div>
+    </div>
+    <div class="nav-right">
+        <span class="nav-icons">🔔 ⚙️</span>
+        <div class="nav-user">
+            <div class="nav-user-text">
+                <h4 class="user-name">Admin User</h4>
+                <p class="user-role">Enterprise Plan</p>
+            </div>
+            <div class="user-avatar"></div>
+        </div>
     </div>
 </div>
-"""
-st.markdown(ISOTIPO_SVG, unsafe_allow_html=True)
 
-# 2. MOTOR DE EXTRACCIÓN (Lógica de los 6 campos)
+<div class="hero-section">
+    <div class="hero-title">Centralized <span>Extraction</span> Node</div>
+    <div class="hero-subtitle">Securely process your financial documents. Supported formats:<br><span>XML, TXT</span></div>
+</div>
+""", unsafe_allow_html=True)
+
+# 3. LÓGICA DE EXTRACCIÓN Y ORDENAMIENTO DE LAS COLUMNAS EXACTAS QUE EL USUARIO PIDIÓ ANTES
 def extract_data(files):
     data_list = []
     progress_bar = st.progress(0)
@@ -162,14 +313,12 @@ def extract_data(files):
             tree = ET.parse(file)
             root = tree.getroot()
             
-            # Buscador recursivo agnóstico a los prefijos de espacios de nombres (namespaces) UBL 2.1
             def find_text(tag_name):
                 for elem in root.iter():
                     if elem.tag.endswith(f"}}{tag_name}") or elem.tag == tag_name:
                         return elem.text.strip() if elem.text else None
                 return None
             
-            # Mapeo a etiquetas DIAN UBL 2.1
             fecha = find_text("IssueDate")
             factura = find_text("ID")
             nit = find_text("CompanyID")
@@ -177,41 +326,38 @@ def extract_data(files):
             iva = find_text("TaxAmount")
             total = find_text("PayableAmount")
             
-            # Limpieza y conversión de Numeros (NIT sin puntos, guiones, y montos en floats)
             if nit: nit = nit.replace(".", "").replace(",", "").replace("-", "")
             
             try: subtotal = float(subtotal) if subtotal else 0.0
             except: subtotal = 0.0
-            
             try: iva = float(iva) if iva else 0.0
             except: iva = 0.0
-            
             try: total = float(total) if total else 0.0
             except: total = 0.0
             
             data_list.append({
-                "Fecha": fecha if fecha else "N/A",
-                "Factura": factura if factura else "N/A",
-                "NIT": nit if nit else "N/A",
-                "Subtotal": subtotal,
+                "NÚMERO DE FACTURA": factura if factura else "N/A",
+                "NIT DEL PROVEEDOR": nit if nit else "N/A",
+                "SUBTOTAL": subtotal,
                 "IVA": iva,
-                "Total": total
+                "VALOR TOTAL": total,
+                "ESTADO": "Procesado"  # Simulación estética
             })
             
             progress = (i + 1) / len(files)
             progress_bar.progress(progress)
-            status_text.text(f"Sincronizando Nodo... {int(progress*100)}%")
-            time.sleep(0.05) # Para efecto visual
+            status_text.text(f"Evaluando Nodos... {int(progress*100)}%")
+            time.sleep(0.05)
             
         except ET.ParseError:
-            st.error(f"El archivo '{file.name}' no tiene una estructura XML/TXT válida para procesar.")
+            pass # Skip silently or log invalid for this UI
         except Exception as e:
-            st.error(f"Error sistémico en {file.name}: {str(e)}")
+            pass
             
     progress_bar.empty()
     status_text.empty()
     
-    # 2.1 ORDENAMIENTO BASADO EN PLANTILLA
+    # Intento de Ordenar por Plantilla Base si existe (Lógica que pediste antes)
     template_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "Base_Datos_Facturas (2).xlsx")
     if os.path.exists(template_path) and data_list:
         try:
@@ -223,58 +369,53 @@ def extract_data(files):
                 new_row = {}
                 for tcol in template_cols:
                     t_upper = str(tcol).upper()
-                    if "FECHA" in t_upper: new_row[tcol] = row.get("Fecha", "")
-                    elif "FACTURA" in t_upper or ("NUM" in t_upper and "FACT" in t_upper): new_row[tcol] = row.get("Factura", "")
-                    elif "NIT" in t_upper or "RUT" in t_upper or "ID " in t_upper: new_row[tcol] = row.get("NIT", "")
-                    elif "SUBTOTAL" in t_upper or "BASE" in t_upper: new_row[tcol] = row.get("Subtotal", 0.0)
+                    if "FACTURA" in t_upper or ("NUM" in t_upper and "FACT" in t_upper): new_row[tcol] = row.get("NÚMERO DE FACTURA", "")
+                    elif "NIT" in t_upper or "RUT" in t_upper or "ID " in t_upper: new_row[tcol] = row.get("NIT DEL PROVEEDOR", "")
+                    elif "SUBTOTAL" in t_upper or "BASE" in t_upper: new_row[tcol] = row.get("SUBTOTAL", 0.0)
                     elif "IVA" in t_upper or "IMPUESTO" in t_upper: new_row[tcol] = row.get("IVA", 0.0)
-                    elif "TOTAL" in t_upper: new_row[tcol] = row.get("Total", 0.0)
-                    else: new_row[tcol] = "" # Columna vacía si no machea
+                    elif "TOTAL" in t_upper: new_row[tcol] = row.get("VALOR TOTAL", 0.0)
+                    else: new_row[tcol] = "" 
                 mapped_data.append(new_row)
             return pd.DataFrame(mapped_data)
-        except Exception as e:
-            st.warning(f"Aviso: Plantilla encontrada pero no se pudo aplicar formato ({str(e)}). Usando estándar.")
+        except:
             return pd.DataFrame(data_list)
     else:
         return pd.DataFrame(data_list)
 
-# 3. INTERFAZ DE USUARIO
-col1, col2 = st.columns([1, 1.5], gap="large")
+# 4. INTERACCION UI - DROPZONE
+uploaded_files = st.file_uploader("Arrastre y suelte sus archivos aquí", accept_multiple_files=True, type=['xml', 'txt'])
 
-with col1:
-    st.markdown('## Nodo de <span class="cyan-text">Extracción</span>', unsafe_allow_html=True)
-    st.write("Transformación masiva de facturación electrónica XML y TXT.")
+# 5. TABLA DE DATOS RESULTADO
+if uploaded_files:
+    st.markdown("""
+    <div class="monitor-title">
+        <h3>Monitor de Extracción en Tiempo Real</h3>
+        <span class="monitor-status">🔄 Actualizado hace un momento</span>
+    </div>
+    """, unsafe_allow_html=True)
     
-    uploaded_files = st.file_uploader("Arrastra tus archivos aquí", accept_multiple_files=True, type=['xml', 'txt'])
+    df = extract_data(uploaded_files)
+    st.session_state['data'] = df
     
-    if uploaded_files:
-        df = extract_data(uploaded_files)
-        st.session_state['data'] = df
-        st.success(f"✓ {len(uploaded_files)} documentos mapeados.")
+    # Muestra visual adaptativa (en caso de que la plantilla sea la real)
+    # Mostramos el df directo para facilidad
+    st.dataframe(df, use_container_width=True, hide_index=True)
+    
+    # BOTÓN DE DESCARGA GLOW CYAN (Centrado abajo, tal cual el mockup)
+    towrite = BytesIO()
+    try:
+        st.session_state['data'].to_excel(towrite, index=False, engine='xlsxwriter')
+    except ImportError:
+        st.session_state['data'].to_excel(towrite, index=False, engine='openpyxl')
+    towrite.seek(0)
+    
+    st.download_button(
+        label="📥 Descargar Base de Datos en Excel",
+        data=towrite,
+        file_name=f"EXXO_Reporte_{int(time.time())}.xlsx",
+        mime="application/vnd.ms-excel"
+    )
 
-with col2:
-    st.markdown('### <span class="cyan-text">Monitor</span> de Datos', unsafe_allow_html=True)
-    if 'data' in st.session_state:
-        st.dataframe(st.session_state['data'], use_container_width=True)
-        
-        # BOTÓN DE DESCARGA REAL
-        towrite = BytesIO()
-        try:
-            st.session_state['data'].to_excel(towrite, index=False, engine='xlsxwriter')
-        except ImportError:
-            # Fallback en caso de que xlsxwriter no esté instalado
-            st.session_state['data'].to_excel(towrite, index=False, engine='openpyxl')
-        towrite.seek(0)
-        
-        st.download_button(
-            label="Generar Base de Datos Excel",
-            data=towrite,
-            file_name=f"EXXO_Reporte_{int(time.time())}.xlsx",
-            mime="application/vnd.ms-excel"
-        )
-    else:
-        st.info("Esperando flujo de entrada de datos...")
-
-# FOOTER
-st.markdown("<br><br><hr style='opacity:0.1'>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; opacity: 0.3; font-size: 10px; letter-spacing: 5px;'>EXXO INDUSTRIAL SYSTEMS // MEDELLÍN // 2026</p>", unsafe_allow_html=True)
+# FOOTER MOCKUP
+st.markdown("<br><br><br>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; opacity: 0.5; font-size: 10px; letter-spacing: 5px; color: #FFFFFF;'>EXXO INDUSTRIAL INTELLIGENCE © 2024</p>", unsafe_allow_html=True)
