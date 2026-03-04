@@ -439,12 +439,48 @@ if uploaded_files:
     # Mostramos el df directo para facilidad
     st.dataframe(df, use_container_width=True, hide_index=True)
     
-    # BOTÓN DE DESCARGA GLOW CYAN (Centrado abajo, tal cual el mockup)
+    # BOTÓN DE DESCARGA GLOW CYAN CON FORMATO DE EXCEL EXXO (Plantilla base)
     towrite = BytesIO()
     try:
-        st.session_state['data'].to_excel(towrite, index=False, engine='xlsxwriter')
-    except ImportError:
+        # Usar XlsxWriter para darle el diseño premium a la tabla
+        writer = pd.ExcelWriter(towrite, engine='xlsxwriter')
+        st.session_state['data'].to_excel(writer, index=False, sheet_name='Base_Datos')
+        
+        workbook = writer.book
+        worksheet = writer.sheets['Base_Datos']
+        
+        # Formatos: Header Azul/Blanco
+        header_format = workbook.add_format({
+            'bold': True,
+            'text_wrap': True,
+            'valign': 'vcenter',
+            'align': 'center',
+            'fg_color': '#4F81BD', # Azul Rey como las plantillas clásicas
+            'font_color': 'white',
+            'border': 1
+        })
+        
+        # Formato: Celdas de contenido centradas
+        cell_format = workbook.add_format({
+            'valign': 'vcenter',
+            'align': 'center',
+            'border': 1
+        })
+        
+        # Aplicar el formato al Header Row
+        for col_num, value in enumerate(df.columns.values):
+            worksheet.write(0, col_num, value, header_format)
+            
+        # Aplicar anchos y formato a las columnas de contenido
+        for i, col in enumerate(df.columns):
+            max_len = max(df[col].astype(str).map(len).max(), len(col)) + 4
+            worksheet.set_column(i, i, max_len, cell_format)
+            
+        writer.close()
+    except Exception as e:
+        # Fallback por si falta xlsxwriter en la nube
         st.session_state['data'].to_excel(towrite, index=False, engine='openpyxl')
+    
     towrite.seek(0)
     
     st.download_button(
