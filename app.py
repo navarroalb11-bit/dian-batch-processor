@@ -83,8 +83,8 @@ st.markdown('<div class="hero-icon">📄➡️📊</div>', unsafe_allow_html=Tru
 st.title("Extractor de Base de Datos XML", anchor=False)
 st.markdown('<p class="muted-text">Convierte cientos de facturas electrónicas (.xml) en un Excel limpio al instante.</p>', unsafe_allow_html=True)
 
-# --- SECTION 1: XML FILES UPLOAD ---
-xml_files = st.file_uploader("Arrastra tus archivos XML aquí", type=["xml"], accept_multiple_files=True, label_visibility="collapsed")
+# --- SECTION 1: XML/TXT FILES UPLOAD ---
+xml_files = st.file_uploader("Arrastra tus archivos aquí (.xml, .txt)", type=["xml", "txt"], accept_multiple_files=True, label_visibility="collapsed")
 
 if xml_files:
     st.success(f"✅ {len(xml_files)} archivos XML cargados y listos para extraer.")
@@ -108,14 +108,21 @@ if st.button("🚀 Descargar Base de Datos", disabled=not bool(xml_files)):
                     
             # 2. Iniciar el motor extractor limpio
             processor = BatchProcessor()
-            processor.process_folder(input_dir, output_excel)
+            stats = processor.process_folder(input_dir, output_excel)
             
             # 3. Descargar el reporte
             if os.path.exists(output_excel):
                 with open(output_excel, "rb") as f:
                     processed_file_data = f.read()
                     
-                st.success("🤖 ¡Extracción finalizada exitosamente!")
+                st.success(f"🤖 ¡Extracción finalizada! Procesadas {stats['processed']} facturas exitosamente.")
+                
+                # Reporte de Errores Amigable para el usuario
+                if stats['failed_not_xml'] > 0:
+                    st.warning(f"⚠️ {stats['failed_not_xml']} archivo(s) .txt no contenían una estructura válida de Factura Electrónica y fueron ignorados.")
+                if stats['failed_not_invoice'] > 0:
+                    st.warning(f"⚠️ {stats['failed_not_invoice']} archivo(s) tenían forma de XML pero no contenían datos contables (ej. Acuses de Recibo) y fueron omitidos.")
+                    
                 st.download_button(
                     label="⬇️ Descargar Excel",
                     data=processed_file_data,
@@ -124,7 +131,7 @@ if st.button("🚀 Descargar Base de Datos", disabled=not bool(xml_files)):
                 )
         
         except Exception as e:
-            st.error(f"Ocurrió un error al procesar los archivos: {str(e)}")
+            st.error(f"Ocurrió un error al procesar la base de datos: {str(e)}")
         
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
