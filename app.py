@@ -118,28 +118,43 @@ EXXO_THEME = """
         background: radial-gradient(circle, #FDE68A 0%, #F59E0B 100%); /* Color durazno del mock */
     }
 
+    /* ANIMACIÓN DEL TÍTULO PRINCIPAL (GLOW PULSANTE) */
+    @keyframes textGlow {
+        0%, 100% { text-shadow: 0 0 10px rgba(0, 217, 255, 0.4); }
+        50% { text-shadow: 0 0 30px rgba(0, 217, 255, 0.9), 0 0 10px rgba(0, 217, 255, 0.5); }
+    }
+    
+    @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
     /* HEADERS CENTRALES */
     .hero-section {
         text-align: center;
         margin-bottom: 3rem;
+        animation: fadeUp 1s cubic-bezier(0.16, 1, 0.3, 1) ease-out;
     }
 
     .hero-title {
-        font-size: 2.8rem;
-        font-weight: 800;
+        font-size: 3rem;
+        font-weight: 900;
         color: #FFFFFF;
-        letter-spacing: -0.5px;
+        letter-spacing: -1px;
         margin-bottom: 0.5rem;
     }
     
     .hero-title span {
         color: #00D9FF;
+        animation: textGlow 3s infinite ease-in-out;
+        display: inline-block;
     }
 
     .hero-subtitle {
         font-size: 1rem;
         color: #A1A1AA;
         font-weight: 400;
+        animation: fadeUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) ease-out;
     }
 
     .hero-subtitle span {
@@ -156,6 +171,7 @@ EXXO_THEME = """
         background-color: rgba(255,255,255,0.02) !important;
         padding: 5rem 2rem !important;
         transition: all 0.3s ease !important;
+        animation: fadeUp 1.4s cubic-bezier(0.16, 1, 0.3, 1) ease-out;
     }
 
     div[data-testid="stFileUploadDropzone"]:hover {
@@ -282,16 +298,6 @@ st.markdown(f"""
         <div class="nav-titles">
             <span class="nav-maintitle">EXXO</span>
             <span class="nav-subtitle">DATA EXTRACTION SYSTEMS</span>
-        </div>
-    </div>
-    <div class="nav-right">
-        <span class="nav-icons">🔔 ⚙️</span>
-        <div class="nav-user">
-            <div class="nav-user-text">
-                <h4 class="user-name">Admin User</h4>
-                <p class="user-role">Enterprise Plan</p>
-            </div>
-            <div class="user-avatar"></div>
         </div>
     </div>
 </div>
