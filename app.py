@@ -3,6 +3,7 @@ import os
 import shutil
 import tempfile
 import base64
+import pandas as pd
 from core.batch_processor import BatchProcessor
 
 # PAGE CONFIG
@@ -408,6 +409,49 @@ if st.button("Generar Base de Datos Excel", disabled=not bool(xml_files)):
             if os.path.exists(output_excel):
                 with open(output_excel, "rb") as f:
                     processed_file_data = f.read()
+
+                # --- 6. DATA MONITOR INTEGRATION ---
+                df_monitor = pd.read_excel(output_excel)
+                
+                # HTML injection for the matching table styling without mutating ST_STYLE
+                table_html = df_monitor.to_html(classes="monitor-table", index=False)
+                styled_monitor = f"""
+                <style>
+                .monitor-table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    color: #E6EDF3;
+                    font-size: 0.95rem;
+                }}
+                .monitor-table thead th {{
+                    background: rgba(0, 217, 255, 0.1);
+                    color: #00D9FF;
+                    padding: 12px 15px;
+                    text-align: left;
+                    border-bottom: 1px solid rgba(0, 217, 255, 0.3);
+                    font-weight: 600;
+                    letter-spacing: 0.5px;
+                }}
+                .monitor-table tbody td {{
+                    padding: 12px 15px;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+                }}
+                .monitor-table tbody tr:hover {{
+                    background: rgba(0, 217, 255, 0.05);
+                }}
+                </style>
+                
+                <div style="margin-top: 3rem; margin-bottom: 2rem;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem;">
+                        <span style="display: block; width: 10px; height: 10px; background: #00D9FF; border-radius: 50%; box-shadow: 0 0 10px #00D9FF;"></span>
+                        <h3 style="color: #FFFFFF; font-size: 1.3rem; margin: 0; text-shadow: 0 0 10px rgba(0, 217, 255, 0.3);">Monitor de Datos (Vista Previa)</h3>
+                    </div>
+                    <div style="border: 1px solid rgba(0, 217, 255, 0.2); border-radius: 15px; overflow-x: auto; background: rgba(13, 17, 23, 0.6); backdrop-filter: blur(5px); box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);">
+                        {table_html}
+                    </div>
+                </div>
+                """
+                st.markdown(styled_monitor, unsafe_allow_html=True)
                     
                 final_html = f"""
                 <div style="text-align: center; margin-top: 1.5rem; color: #00D9FF; font-weight: 600; font-size: 1.1rem; filter: drop-shadow(0 0 10px rgba(0, 217, 255, 0.4));">
