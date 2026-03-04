@@ -58,11 +58,6 @@ EXXO_THEME = """
         gap: 12px;
     }
 
-    .top-logo {
-        height: 40px;
-        border-radius: 8px;
-    }
-
     .nav-titles {
         display: flex;
         flex-direction: column;
@@ -88,34 +83,20 @@ EXXO_THEME = """
     .nav-right {
         display: flex;
         align-items: center;
-        gap: 20px;
     }
 
-    .nav-icons {
-        color: #A1A1AA;
-        font-size: 1.1rem;
+    /* Isotipo a la derecha */
+    .top-logo {
+        height: 45px;
+        border-radius: 8px;
     }
-
-    .nav-user {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        border-left: 1px solid rgba(255,255,255,0.1);
-        padding-left: 20px;
-    }
-
-    .nav-user-text {
-        text-align: right;
-    }
-
-    h4.user-name { margin: 0; font-size: 0.85rem; font-weight: 700; color: #FFFFFF; }
-    p.user-role { margin: 0; font-size: 0.7rem; color: #00D9FF; }
-
-    .user-avatar {
-        width: 35px;
-        height: 35px;
-        border-radius: 50%;
-        background: radial-gradient(circle, #FDE68A 0%, #F59E0B 100%); /* Color durazno del mock */
+    
+    .top-logo-placeholder {
+        width: 45px;
+        height: 45px;
+        border-radius: 8px;
+        background: rgba(0, 217, 255, 0.1);
+        border: 1px solid #00D9FF;
     }
 
     /* ANIMACIÓN DEL TÍTULO PRINCIPAL (GLOW PULSANTE) */
@@ -294,11 +275,13 @@ st.markdown(EXXO_THEME, unsafe_allow_html=True)
 st.markdown(f"""
 <div class="nav-bar">
     <div class="nav-left">
-        {logo_img_tag}
         <div class="nav-titles">
             <span class="nav-maintitle">EXXO</span>
             <span class="nav-subtitle">DATA EXTRACTION SYSTEMS</span>
         </div>
+    </div>
+    <div class="nav-right">
+        {logo_img_tag}
     </div>
 </div>
 
